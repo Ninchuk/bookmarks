@@ -2,14 +2,14 @@ services:
   db:
     image: postgres:14.1-alpine
     volumes:
-      - ./data/db:/var/lib/postgresql/data
+      - ../data/db:/var/lib/postgresql/data
       - ./scripts/postgres/:/docker-entrypoint-initdb.d/
     environment:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     networks:
       - bookmarks
     healthcheck:
@@ -18,9 +18,9 @@ services:
       retries: 5
   web:
     build: .
-    command: ./scripts/django/run_service.sh
     volumes:
-      - .:/code
+      - .:/bookmarks
+    command: bash -c "while true; do echo 'Hit CTRL+C'; sleep 1; done"
     ports:
       - "8000:8000"
     environment:

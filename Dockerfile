@@ -6,3 +6,4 @@ COPY requirements.txt /bookmarks/
 RUN pip install -r requirements.txt
 COPY . /bookmarks/
 RUN chmod +x /bookmarks/scripts/django/run_service.sh
+CMD ./scripts/django/run_service.sh
