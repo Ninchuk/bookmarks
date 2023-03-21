@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
                 ('description', models.TextField(blank=True)),
                 ('created', models.DateField(auto_now_add=True)),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='images_created', to=settings.AUTH_USER_MODEL)),
-                ('users_like', models.ManyToManyField(blank=True, related_name='images_liked', to=settings.AUTH_USER_MODEL)),
+                ('user_like', models.ManyToManyField(blank=True, related_name='images_liked', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'ordering': ['-created'],
