@@ -20,7 +20,6 @@ services:
     build: .
     volumes:
       - .:/bookmarks
-    command: bash -c "while true; do echo 'Hit CTRL+C'; sleep 1; done"
     ports:
       - "8000:8000"
     environment:
