@@ -3,7 +3,10 @@
 {% block title %}Images bookmarked{% endblock %}
 
 {% block content %}
-  <h1>Images bookmarked</h1>
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h1>Images bookmarked</h1>
+    <h1><a href="{% url 'images:ranking' %}" style="color: black;">Image ranking</a></h1>
+  </div>
   <div id="image-list">
     {% include "images/image/list_images.html" %}
   </div>
