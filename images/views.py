@@ -1,4 +1,5 @@
 from actions.utils import create_action
+from django.conf import settings
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -10,6 +11,7 @@ from django.core.paginator import Paginator, EmptyPage, \
                                   PageNotAnInteger
 from .forms import ImageCreateForm
 from .models import Image
+import redis
 
 
 @login_required
@@ -39,10 +41,12 @@ def image_create(request):
 
 def image_detail(request, id, slug):
     image = get_object_or_404(Image, id=id, slug=slug)
+    total_views = r.incr(f'image:{image.id}:views')
     return render(request,
                   'images/image/detail.html',
                   {'section': 'images',
-                   'image': image})
+                   'image': image,
+                   'total_views': total_views})
 
 
 @login_required
@@ -91,3 +95,8 @@ def image_list(request):
                   'images/image/list.html',
                    {'section': 'images',
                     'images': images})
+
+
+r = redis.Redis(host=settings.REDIS_HOST,
+                port=settings.REDIS_PORT,
+                db=settings.REDIS_DB)

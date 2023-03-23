@@ -185,3 +185,5 @@ fabric.properties
 
 data/db
 db.sqlite3
+
+redis_data
