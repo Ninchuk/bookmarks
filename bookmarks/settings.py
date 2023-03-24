@@ -10,9 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
-from django.urls import reverse_lazy
-from pathlib import Path
 import os
+from pathlib import Path
+
+from django.urls import reverse_lazy
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-f^5hd8rt*z@uy)#%is_ti&su-lx5@=$0wr3^w3tj2br0$akswy'
+SECRET_KEY = 'django-insecure-f^5hd8rt*z@uy)#%is_ti&su-lx5@=$0wr3^w3tj2br0$akswy'  # noqa: BLK100
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -146,18 +147,20 @@ LOGOUT_URL = 'logout'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 AUTHENTICATION_BACKENDS = [
- 'django.contrib.auth.backends.ModelBackend',
- 'account.authentication.EmailAuthBackend',
- 'social_core.backends.facebook.FacebookOAuth2',
- 'social_core.backends.twitter.TwitterOAuth',
- 'social_core.backends.google.GoogleOAuth2'
+    'django.contrib.auth.backends.ModelBackend',
+    'account.authentication.EmailAuthBackend',
+    'social_core.backends.facebook.FacebookOAuth2',
+    'social_core.backends.twitter.TwitterOAuth',
+    'social_core.backends.google.GoogleOAuth2',
 ]
 
 SOCIAL_AUTH_FACEBOOK_KEY = '1794946064214710'
 SOCIAL_AUTH_FACEBOOK_SECRET = '06e584e9149c829da4e41a3cf1388498'
 SOCIAL_AUTH_FACEBOOK_SCOPE = ['email']
 
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '377291607367-6q3cti7e12a7vk4eop6o5dt39j00jvmf.apps.googleusercontent.com'
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = (
+    '377291607367-6q3cti7e12a7vk4eop6o5dt39j00jvmf.apps.googleusercontent.com'
+)
 SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'
 
 SOCIAL_AUTH_PIPELINE = [
@@ -173,7 +176,9 @@ SOCIAL_AUTH_PIPELINE = [
     'social_core.pipeline.user.user_details',
 ]
 
-ABSOLUTE_URL_OVERRIDES = {'auth.user': lambda u: reverse_lazy('user_detail', args=[u.username])}
+ABSOLUTE_URL_OVERRIDES = {
+    'auth.user': lambda u: reverse_lazy('user_detail', args=[u.username])
+}
 
 INTERNAL_IPS = [
     '127.0.0.1',
@@ -181,6 +186,7 @@ INTERNAL_IPS = [
 
 if DEBUG:
     import mimetypes
+
     mimetypes.add_type('application/javascript', '.js', True)
     mimetypes.add_type('text/css', '.css', True)
 
@@ -199,7 +205,7 @@ CACHES = {
         'LOCATION': 'redis://my_redis:6379/0',
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        }
+        },
     }
 }
 

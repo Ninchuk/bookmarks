@@ -4,9 +4,8 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('images', '0002_rename_user_like_image_users_like'),
+        ('images', '0002_rename_user_like_image_users_like'),  # noqa: BLK100
     ]
 
     operations = [

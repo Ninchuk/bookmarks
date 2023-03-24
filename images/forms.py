@@ -1,14 +1,15 @@
+import requests
 from django import forms
 from django.core.files.base import ContentFile
 from django.utils.text import slugify
+
 from .models import Image
-import requests
 
 
 class ImageCreateForm(forms.ModelForm):
     class Meta:
         model = Image
-        fields = ['title', 'url', 'description']
+        fields = ['title', 'url', 'description']  # noqa: BLK100
         widgets = {'url': forms.HiddenInput}
 
     def clean_url(self):
@@ -16,7 +17,9 @@ class ImageCreateForm(forms.ModelForm):
         valid_extensions = ['jpg', 'jpeg', 'png']
         extension = url.rsplit('.', 1)[1].lower()
         if extension not in valid_extensions:
-            raise forms.ValidationError('The given url does not match valid image extensions.')
+            raise forms.ValidationError(
+                'The given url does not match valid image extensions.'
+            )
         return url
 
     def save(self, force_insert=False, force_update=False, commit=True):

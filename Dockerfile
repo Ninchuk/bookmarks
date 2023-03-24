@@ -19,11 +19,11 @@ RUN apt-get update \
   && apt-get -y install gcc postgresql \
   && apt-get clean
 
-# COPY ./app/pyproject.toml ./app/poetry.lock /usr/src/app/
+COPY ./pyproject.toml ./poetry.lock /usr/src/app/
 
-# RUN poetry config virtualenvs.create false \
-#     && poetry install --no-interaction --no-ansi --without dev \
-#     && mkdir -p /var/log && chown -R 1777 /var/log
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi --without dev \
+    && mkdir -p /var/log && chown -R 1777 /var/log
 
 COPY . /usr/src/app
 COPY ./README.md /usr/src/app

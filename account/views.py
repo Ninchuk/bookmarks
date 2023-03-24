@@ -1,22 +1,26 @@
+from django.contrib import messages
+from django.contrib.auth import authenticate, login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, render
+from django.views.decorators.http import require_POST
+
 from actions.models import Action
 from actions.utils import create_action
-from django.http import JsonResponse, HttpResponse
-from django.shortcuts import get_object_or_404, render
-from django.contrib.auth import authenticate, login
-from django.contrib.auth.models import User
-from django.views.decorators.http import require_POST
-from .forms import LoginForm, UserRegistrationForm, UserEditForm, ProfileEditForm
-from django.contrib.auth.decorators import login_required
-from .models import Contact, Profile
-from django.contrib import messages
+
+from .forms import LoginForm, ProfileEditForm, UserEditForm, UserRegistrationForm  # noqa: I001 BLK100
+from .models import Contact, Profile  # noqa: I005
 
 
 def user_login(request):
-    if request.method == 'POST':
+    if request.method == 'POST':  # noqa: BLK100
         form = LoginForm(request.POST)
         if form.is_valid():
             cd = form.cleaned_data
-            user = authenticate(request, username=cd['username'], password=cd['password'])
+            user = authenticate(
+                request, username=cd['username'], password=cd['password']
+            )
             if user is not None:
                 if user.is_active:
                     login(request, user)
@@ -36,8 +40,12 @@ def dashboard(request):
     following_ids = request.user.following.values_list('id', flat=True)
     if following_ids:
         actions = actions.filter(user_id__in=following_ids)
-        actions = actions.select_related('user', 'user__profile').prefetch_related('target')[:10]
-    return render(request, 'account/dashboard.html', {'section': 'dashboard', 'actions': actions})
+        actions = actions.select_related('user', 'user__profile').prefetch_related(
+            'target'
+        )[:10]
+    return render(
+        request, 'account/dashboard.html', {'section': 'dashboard', 'actions': actions}
+    )
 
 
 def register(request):
@@ -59,7 +67,9 @@ def register(request):
 def edit(request):
     if request.method == 'POST':
         user_form = UserEditForm(instance=request.user, data=request.POST)
-        profile_form = ProfileEditForm(instance=request.user.profile, data=request.POST, files=request.FILES)
+        profile_form = ProfileEditForm(
+            instance=request.user.profile, data=request.POST, files=request.FILES
+        )
         if user_form.is_valid() and profile_form.is_valid():
             user_form.save()
             profile_form.save()
@@ -69,19 +79,27 @@ def edit(request):
     else:
         user_form = UserEditForm(instance=request.user)
         profile_form = ProfileEditForm(instance=request.user.profile)
-    return render(request, 'account/edit.html', {'user_form': user_form, 'profile_form': profile_form})
+    return render(
+        request,
+        'account/edit.html',
+        {'user_form': user_form, 'profile_form': profile_form},
+    )
 
 
 @login_required
 def user_list(request):
     users = User.objects.filter(is_active=True)
-    return render(request, 'account/user/list.html', {'section': 'people', 'users': users})
+    return render(
+        request, 'account/user/list.html', {'section': 'people', 'users': users}
+    )
 
 
 @login_required
 def user_detail(request, username):
     user = get_object_or_404(User, username=username, is_active=True)
-    return render(request, 'account/user/detail.html', {'section': 'people', 'user': user})
+    return render(
+        request, 'account/user/detail.html', {'section': 'people', 'user': user}
+    )
 
 
 @require_POST

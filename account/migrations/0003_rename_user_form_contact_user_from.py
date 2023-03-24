@@ -4,9 +4,8 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('account', '0002_contact_contact_account_con_created_8bdae6_idx'),
+        ('account', '0002_contact_contact_account_con_created_8bdae6_idx'),  # noqa: BLK100
     ]
 
     operations = [

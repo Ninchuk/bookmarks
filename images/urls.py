@@ -1,7 +1,8 @@
 from django.urls import path
+
 from . import views
 
-app_name = 'images'
+app_name = 'images'  # noqa BLK100
 
 urlpatterns = [
     path('create/', views.image_create, name='create'),
