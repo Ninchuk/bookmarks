@@ -1,7 +1,0 @@
-region = "us-west-1"
-docker_image_url_django = "174819378488.dkr.ecr.us-west-1.amazonaws.com/bookmarks_django:dev"
-certificate_arn = "arn:aws:acm:us-west-1:174819378488:certificate/83ddb534-55dc-45e0-93bd-95793ee8c3be"
-docker_image_url_nginx = "174819378488.dkr.ecr.us-west-1.amazonaws.com/bookmarks_nginx:dev"
-secret_id = "production_rds_password"
-project_name = "bookmarks"
-hosted_zone = "theiceman.net"
