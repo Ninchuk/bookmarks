@@ -1,0 +1,263 @@
+name: "Terraform"
+
+on:
+  push:
+
+jobs:
+  tests_and_lint:
+    name: "Tests and Lint"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.3.0
+        with:
+          token: ${{ secrets.TOKEN }}
+
+      - name: Test
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfiles/django.Dockerfile
+          push: false
+          target: test
+
+      - name: Lint
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfiles/django.Dockerfile
+          push: false
+          target: lint
+
+  docker:
+    name: "Docker"
+    runs-on: ubuntu-latest
+    needs: tests_and_lint
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v3.3.0
+        with:
+          token: ${{ secrets.TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Set Terraform Workspace
+        id: workspace_main
+        if: github.ref == 'refs/heads/main'
+        run: echo "TERRAFORM_WORKSPACE=prod" >> $GITHUB_ENV
+
+      - name: Set Terraform Workspace
+        id: workspace_stage
+        if: github.ref == 'refs/heads/stage'
+        run: echo "TERRAFORM_WORKSPACE=stage" >> $GITHUB_ENV
+
+      - name: Set Terraform Workspace
+        id: workspace_dev
+        if: github.ref != 'refs/heads/stage' && github.ref != 'refs/heads/main'
+        run: echo "TERRAFORM_WORKSPACE=dev" >> $GITHUB_ENV
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_DEFAULT_REGION }}.amazonaws.com
+          username: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Build and push Django
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfiles/django.Dockerfile
+          push: true
+          tags: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_DEFAULT_REGION }}.amazonaws.com/${{ vars.PROJECT_NAME }}_django:${{ env.TERRAFORM_WORKSPACE }}
+          target: dist-image
+
+      - name: Build and push Nginx
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfiles/nginx.Dockerfile
+          push: true
+          tags: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_DEFAULT_REGION }}.amazonaws.com/${{ vars.PROJECT_NAME }}_nginx:${{ env.TERRAFORM_WORKSPACE }}
+
+  terraform:
+    name: "Terraform"
+    runs-on: ubuntu-latest
+    needs: docker
+    permissions:
+      pull-requests: write
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+      TF_VAR_region: ${{ vars.AWS_DEFAULT_REGION }}
+      TF_VAR_certificate_arn: ${{ secrets.AWS_CERTIFICATE_ARN }}
+      TF_VAR_secret_id: ${{ vars.AWS_SECRET_ID }}
+      TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+      TF_VAR_hosted_zone: ${{ vars.HOSTED_ZONE }}
+    steps:
+      - name: Set type of AWS
+        run: |
+          if [[ ${{ vars.AWS_TYPE }} == "cheap" ]]; then echo "TERRAFORM_DIR=./terraform_cheap" >> $GITHUB_ENV;  else echo "TERRAFORM_DIR=./terraform" >> $GITHUB_ENV; fi
+
+      - name: Checkout
+        uses: actions/checkout@v3.3.0
+        with:
+          token: ${{ secrets.TOKEN }}
+
+      - name: Create AWS_PUB_KEY
+        id: aws_pub_key
+        run: mkdir -p ~/.ssh/ && echo "${{ secrets.AWS_PUB_KEY }}" > ~/.ssh/aws.pub
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Format
+        id: fmt
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform fmt -check
+
+      - name: Terraform Init
+        id: init
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform init
+
+      - name: Set Terraform Workspace
+        id: workspace_main
+        if: github.ref == 'refs/heads/main'
+        run: echo "TERRAFORM_WORKSPACE=prod" >> $GITHUB_ENV
+
+      - name: Set Terraform Workspace
+        id: workspace_stage
+        if: github.ref == 'refs/heads/stage'
+        run: echo "TERRAFORM_WORKSPACE=stage" >> $GITHUB_ENV
+
+      - name: Set Terraform Workspace
+        id: workspace_dev
+        if: github.ref != 'refs/heads/stage' && github.ref != 'refs/heads/main'
+        run: echo "TERRAFORM_WORKSPACE=dev" >> $GITHUB_ENV
+
+      - name: Create Terraform Workspace
+        id: create_workspace
+        continue-on-error: true
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform workspace new ${{ env.TERRAFORM_WORKSPACE }}
+
+      - name: Select Terraform Workspace
+        id: select_workspace
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform workspace select ${{ env.TERRAFORM_WORKSPACE }}
+
+      - name: Terraform Validate
+        id: validate
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform validate -no-color
+
+      - name: Terraform Apply
+        id: apply
+        if: github.event_name == 'push'
+        env:
+          TF_VAR_docker_image_url_django: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_DEFAULT_REGION }}.amazonaws.com/${{ vars.PROJECT_NAME }}_django:${{ env.TERRAFORM_WORKSPACE }}
+          TF_VAR_docker_image_url_nginx: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_DEFAULT_REGION }}.amazonaws.com/${{ vars.PROJECT_NAME }}_nginx:${{ env.TERRAFORM_WORKSPACE }}
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform apply -auto-approve -input=false
+
+      - name: Install python
+        id: python
+        uses: actions/setup-python@v4
+        with:
+          cache: 'pip'
+          python-version: '3.10'
+
+      - run: cd ./deploy && pip install -r requirements.txt
+
+      - name: Update docker images
+        if: github.event_name == 'push'
+        id: update_docker
+        run: cd ./deploy && python update-ecs.py --cluster="${{ env.TERRAFORM_WORKSPACE }}-${{ vars.PROJECT_NAME }}-cluster" --service="${{ env.TERRAFORM_WORKSPACE }}-${{ vars.PROJECT_NAME }}-service"
+
+      - name: Terraform Update Docker Images
+        id: update_docker_images
+        env:
+          TF_VAR_docker_image_url_django: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_DEFAULT_REGION }}.amazonaws.com/${{ vars.PROJECT_NAME }}_django:${{ env.TERRAFORM_WORKSPACE }}
+          TF_VAR_docker_image_url_nginx: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_DEFAULT_REGION }}.amazonaws.com/${{ vars.PROJECT_NAME }}_nginx:${{ env.TERRAFORM_WORKSPACE }}
+        if: github.event_name == 'push'
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform apply -auto-approve -input=false
+
+    outputs:
+      aws_type: ${{ vars.AWS_TYPE }}
+
+  clean:
+    name: "Clean Terraform"
+    runs-on: ubuntu-latest
+    needs: terraform
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+      TF_VAR_region: ${{ vars.AWS_DEFAULT_REGION }}
+      TF_VAR_certificate_arn: ${{ secrets.AWS_CERTIFICATE_ARN }}
+      TF_VAR_secret_id: ${{ vars.AWS_SECRET_ID }}
+      TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+      TF_VAR_hosted_zone: ${{ vars.HOSTED_ZONE }}
+    if: needs.terraform.outputs.aws_type != 'cheap'
+
+    steps:
+      - name: Set type of AWS
+        run: |
+          if [[ ${{ vars.AWS_TYPE }} == "cheap" ]]; then echo "TERRAFORM_DIR=./terraform_cheap" >> $GITHUB_ENV;  else echo "TERRAFORM_DIR=./terraform" >> $GITHUB_ENV; fi
+      - name: Checkout
+        uses: actions/checkout@v3.3.0
+        with:
+          token: ${{ secrets.TOKEN }}
+
+      - name: Install AWS CLI
+        id: install-aws-cli
+        uses: unfor19/install-aws-cli-action@master
+
+      - name: Create AWS_PUB_KEY
+        id: aws_pub_key
+        run: mkdir -p ~/.ssh/ && echo "${{ secrets.AWS_PUB_KEY }}" > ~/.ssh/aws.pub
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Init
+        id: init
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform init
+
+      - name: Set Terraform Workspace
+        id: workspace_main
+        if: github.ref == 'refs/heads/main'
+        run: echo "TERRAFORM_WORKSPACE=prod" >> $GITHUB_ENV
+
+      - name: Set Terraform Workspace
+        id: workspace_stage
+        if: github.ref == 'refs/heads/stage'
+        run: echo "TERRAFORM_WORKSPACE=stage" >> $GITHUB_ENV
+
+      - name: Set Terraform Workspace
+        id: workspace_dev
+        if: github.ref != 'refs/heads/stage' && github.ref != 'refs/heads/main'
+        run: echo "TERRAFORM_WORKSPACE=dev" >> $GITHUB_ENV
+
+      - name: Create Terraform Workspace
+        id: create_workspace
+        continue-on-error: true
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform workspace new ${{ env.TERRAFORM_WORKSPACE }}
+
+      - name: Select Terraform Workspace
+        id: select_workspace
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform workspace select ${{ env.TERRAFORM_WORKSPACE }}
+
+      - name: Sleep
+        run: sleep ${{ vars.DELETION_DELAY }}
+        shell: bash
+
+      - name: Terraform delete
+        env:
+          TF_VAR_docker_image_url_django: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_DEFAULT_REGION }}.amazonaws.com/${{ vars.PROJECT_NAME }}_django:${{ env.TERRAFORM_WORKSPACE }}
+          TF_VAR_docker_image_url_nginx: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_DEFAULT_REGION }}.amazonaws.com/${{ vars.PROJECT_NAME }}_nginx:${{ env.TERRAFORM_WORKSPACE }}
+        run: cd ${{ env.TERRAFORM_DIR }} && terraform destroy -auto-approve -input=false
+
+      - name: Delete aws secret
+        run: aws secretsmanager delete-secret --secret-id ${{ env.TERRAFORM_WORKSPACE }}-${{ vars.PROJECT_NAME }}-${{ vars.AWS_SECRET_ID }} --force-delete-without-recovery --region ${{ vars.AWS_DEFAULT_REGION }}
