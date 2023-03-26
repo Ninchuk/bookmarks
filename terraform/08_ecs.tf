@@ -15,6 +15,7 @@ resource "aws_launch_configuration" "ecs" {
   key_name                    = aws_key_pair.production.key_name
   associate_public_ip_address = true
   user_data                   = "#!/bin/bash\necho ECS_CLUSTER='${terraform.workspace}-${var.project_name}-cluster' > /etc/ecs/ecs.config"
+  spot_price                  = "0.005"
 }
 
 data "template_file" "app" {
